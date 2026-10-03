@@ -1,4 +1,4 @@
-# Note Image Library
+# Cloud Note Reference Library
 
 A single-file web app for storing images and PDFs and referencing them by ID in handwritten notes (e.g. `IMG-001`, `PDF-001`).
 
