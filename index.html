@@ -75,7 +75,10 @@ dialog::backdrop{background:#000a}
 .pdfbar button:disabled{opacity:.4}
 #pdfTitle{flex:1 1 8rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 #pdfPg{font-size:.9rem;color:var(--mute);min-width:3.6rem;text-align:center}
-#pdfBody{flex:1;overflow:auto;padding:.6rem;-webkit-overflow-scrolling:touch}
+#pdfBody{flex:1;overflow:auto;padding:.6rem;position:relative;-webkit-overflow-scrolling:touch}
+#pdfPages{width:max-content;min-width:100%}
+.pg{position:relative;background:#fff;margin:0 auto .6rem}
+.pg canvas{display:block;width:100%;height:100%}
 #pdfCv{display:block;margin:0 auto;background:#fff;max-width:none}
 #pdfMsg{text-align:center;color:var(--mute);padding:2rem 1rem}
 dl{display:grid;grid-template-columns:auto 1fr;gap:.4rem 1rem;margin:0 0 1rem}dt{color:var(--mute)}dd{margin:0;overflow-wrap:anywhere}
@@ -184,10 +187,10 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:.4rem 1rem;margin:0 0 1rem}dt
   <div class="pdfbar">
     <button id="pdfClose" aria-label="Close">✕</button><span id="pdfTitle"></span>
     <button id="pdfPrev" aria-label="Previous page">‹</button><span id="pdfPg"></span><button id="pdfNext" aria-label="Next page">›</button>
-    <button id="pdfZo" aria-label="Zoom out">−</button><button id="pdfZi" aria-label="Zoom in">＋</button>
+    <button id="pdfMode" aria-label="Switch view mode">Scroll view</button><button id="pdfZo" aria-label="Zoom out">−</button><button id="pdfZi" aria-label="Zoom in">＋</button>
     <button id="pdfOpen" aria-label="Open in new tab">↗</button><button id="pdfDl" aria-label="Download">⬇</button>
   </div>
-  <div id="pdfBody"><div id="pdfMsg">Loading…</div><canvas id="pdfCv" class="hidden"></canvas></div>
+  <div id="pdfBody"><div id="pdfMsg">Loading…</div><canvas id="pdfCv" class="hidden"></canvas><div id="pdfPages" class="hidden"></div></div>
 </div>
 <dialog id="lb"><img id="lbImg" alt=""></dialog>
 <div id="toast" class="hidden" role="status"></div>
@@ -640,8 +643,15 @@ function loadPdfJs() {
   })().catch((e) => { pdfLib = null; throw e; });
   return pdfLib;
 }
-const V = { doc: null, page: 1, zoom: 1, token: 0, url: "", name: "" };
-function pdfMsg(t) { $("pdfMsg").textContent = t; $("pdfMsg").classList.toggle("hidden", !t); $("pdfCv").classList.toggle("hidden", !!t); }
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+// mode "page" = one page at a time (prev/next); mode "scroll" = all pages in one continuous scroll (remembered between visits)
+const V = { doc: null, page: 1, zoom: 1, token: 0, url: "", name: "", mode: store.get("nil.pdfmode") === "scroll" ? "scroll" : "page" };
+let pgObs = null, lastW = 0;
+function pdfMsg(t) {
+  $("pdfMsg").textContent = t; $("pdfMsg").classList.toggle("hidden", !t);
+  $("pdfCv").classList.toggle("hidden", !!t || V.mode !== "page");
+  $("pdfPages").classList.toggle("hidden", !!t || V.mode !== "scroll");
+}
 async function openPdf(item) {
   Object.assign(V, { doc: null, page: 1, zoom: 1, url: "", name: item.filename });
   $("pdfTitle").textContent = item.id + (item.topic ? " · " + item.topic : "");
@@ -650,11 +660,24 @@ async function openPdf(item) {
     V.url = await imageUrl(item.path);                                  // authenticated API fetch -> blob URL
     const [lib, buf] = await Promise.all([loadPdfJs(), fetch(V.url).then((r) => r.arrayBuffer())]);
     V.doc = await lib.getDocument({ data: buf }).promise;
-    pdfMsg(""); await renderPdfPage();
+    await renderPdf();
   } catch (e) { pdfMsg(e.message || "Could not open this PDF."); }
 }
-async function renderPdfPage() {
+async function renderPdf() {   // draw the current document in the active mode
   if (!V.doc) return;
+  pdfMsg("");
+  $("pdfMode").textContent = V.mode === "scroll" ? "Page view" : "Scroll view";
+  lastW = $("pdfBody").clientWidth;
+  if (V.mode === "scroll") { await buildScroll(); }
+  else { stopScroll(); await renderPdfPage(); }
+}
+function updateNav() {
+  if (!V.doc) return;
+  $("pdfPg").textContent = V.page + " / " + V.doc.numPages;
+  $("pdfPrev").disabled = V.page <= 1; $("pdfNext").disabled = V.page >= V.doc.numPages;
+}
+/* --- page mode --- */
+async function renderPdfPage() {
   const tk = ++V.token, page = await V.doc.getPage(V.page);
   if (tk !== V.token) return;
   const base = page.getViewport({ scale: 1 });
@@ -664,23 +687,73 @@ async function renderPdfPage() {
   cv.style.width = vp.width + "px"; cv.style.height = vp.height + "px";
   await page.render({ canvasContext: cv.getContext("2d"), viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null }).promise.catch(() => {});
   if (tk !== V.token) return;
-  $("pdfPg").textContent = V.page + " / " + V.doc.numPages;
-  $("pdfPrev").disabled = V.page <= 1; $("pdfNext").disabled = V.page >= V.doc.numPages;
+  updateNav();
   $("pdfBody").scrollTop = 0;
 }
-function closePdf() { V.token++; V.doc = null; $("pdfv").classList.add("hidden"); document.body.style.overflow = ""; }
+/* --- continuous scroll mode: sized placeholders for every page; pages render when near the viewport and are freed when far away --- */
+function stopScroll() { if (pgObs) pgObs.disconnect(); pgObs = null; $("pdfPages").textContent = ""; }
+async function drawPg(d, tk) {
+  if (d.dataset.done) return;
+  d.dataset.done = "1";
+  const page = await V.doc.getPage(+d.dataset.n);
+  if (tk !== V.token || !d.dataset.done) return;
+  const vp = page.getViewport({ scale: +d.dataset.sc }), dpr = window.devicePixelRatio || 1;
+  const cv = document.createElement("canvas");
+  cv.width = Math.floor(vp.width * dpr); cv.height = Math.floor(vp.height * dpr);
+  d.appendChild(cv);
+  d._task = page.render({ canvasContext: cv.getContext("2d"), viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null });
+  d._task.promise.catch(() => {});
+}
+function clearPg(d) { if (!d.dataset.done) return; if (d._task) d._task.cancel(); d.textContent = ""; delete d.dataset.done; }
+async function buildScroll() {
+  const tk = ++V.token, keep = V.page, box = $("pdfPages");
+  stopScroll();
+  const width = $("pdfBody").clientWidth - 16;
+  const pages = await Promise.all(Array.from({ length: V.doc.numPages }, (_, i) => V.doc.getPage(i + 1)));
+  if (tk !== V.token) return;
+  const frag = document.createDocumentFragment();
+  pages.forEach((pg, i) => {
+    const sc = Math.max(width / pg.getViewport({ scale: 1 }).width, 0.1) * V.zoom, vp = pg.getViewport({ scale: sc });
+    const d = document.createElement("div"); d.className = "pg"; d.dataset.n = i + 1; d.dataset.sc = sc;
+    d.style.width = vp.width + "px"; d.style.height = vp.height + "px"; frag.appendChild(d);
+  });
+  box.appendChild(frag);
+  pgObs = new IntersectionObserver((es) => es.forEach((en) => (en.isIntersecting ? drawPg(en.target, tk) : clearPg(en.target))), { root: $("pdfBody"), rootMargin: "1200px 0px" });
+  [...box.children].forEach((d) => pgObs.observe(d));
+  scrollToPage(Math.min(keep, V.doc.numPages));
+}
+function scrollToPage(n) {
+  V.page = n;
+  const el = $("pdfPages").children[n - 1];
+  if (el) $("pdfBody").scrollTop = el.offsetTop - 8;
+  updateNav();
+}
+let scrollRaf = 0;
+$("pdfBody").addEventListener("scroll", () => {   // keep "page x / y" in sync while scrolling
+  if (V.mode !== "scroll" || !V.doc || scrollRaf) return;
+  scrollRaf = requestAnimationFrame(() => {
+    scrollRaf = 0;
+    const b = $("pdfBody"), y = b.scrollTop + b.clientHeight * 0.35, ch = $("pdfPages").children;
+    let cur = 1;
+    for (let i = 0; i < ch.length; i++) { if (ch[i].offsetTop <= y) cur = i + 1; else break; }
+    if (cur !== V.page) { V.page = cur; updateNav(); }
+  });
+});
+function closePdf() { V.token++; V.doc = null; stopScroll(); $("pdfv").classList.add("hidden"); document.body.style.overflow = ""; }
 $("pdfClose").onclick = closePdf;
-$("pdfPrev").onclick = () => { if (V.page > 1) { V.page--; renderPdfPage(); } };
-$("pdfNext").onclick = () => { if (V.doc && V.page < V.doc.numPages) { V.page++; renderPdfPage(); } };
-$("pdfZi").onclick = () => { V.zoom = Math.min(4, V.zoom + 0.25); renderPdfPage(); };
-$("pdfZo").onclick = () => { V.zoom = Math.max(0.5, V.zoom - 0.25); renderPdfPage(); };
+$("pdfMode").onclick = () => { if (!V.doc) return; V.mode = V.mode === "scroll" ? "page" : "scroll"; store.set("nil.pdfmode", V.mode); renderPdf(); };
+$("pdfPrev").onclick = () => { if (!V.doc || V.page <= 1) return; if (V.mode === "scroll") scrollToPage(V.page - 1); else { V.page--; renderPdfPage(); } };
+$("pdfNext").onclick = () => { if (!V.doc || V.page >= V.doc.numPages) return; if (V.mode === "scroll") scrollToPage(V.page + 1); else { V.page++; renderPdfPage(); } };
+$("pdfZi").onclick = () => { V.zoom = Math.min(4, V.zoom + 0.25); renderPdf(); };
+$("pdfZo").onclick = () => { V.zoom = Math.max(0.5, V.zoom - 0.25); renderPdf(); };
 $("pdfOpen").onclick = () => { if (V.url) window.open(V.url, "_blank"); };
 $("pdfDl").onclick = () => { if (!V.url) return; const a = document.createElement("a"); a.href = V.url; a.download = V.name; document.body.appendChild(a); a.click(); a.remove(); };
 document.addEventListener("keydown", (e) => {
   if ($("pdfv").classList.contains("hidden")) return;
   if (e.key === "Escape") closePdf(); else if (e.key === "ArrowRight") $("pdfNext").click(); else if (e.key === "ArrowLeft") $("pdfPrev").click();
 });
-window.addEventListener("resize", () => { if (V.doc) renderPdfPage(); });
+let rsT;   // only re-layout when the width changes (mobile address-bar show/hide fires resize too)
+window.addEventListener("resize", () => { clearTimeout(rsT); rsT = setTimeout(() => { const w = $("pdfBody").clientWidth; if (V.doc && w && w !== lastW) { lastW = w; renderPdf(); } }, 200); });
 
 /* ----- settings ----- */
 function setStatus(kind, text) { $("stDot").className = "st " + kind; $("stText").textContent = text; }
