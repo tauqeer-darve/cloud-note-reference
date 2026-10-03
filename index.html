@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Note Image Library</title>
+<style>
+:root{--bg:#14161a;--panel:#1c1f25;--panel2:#242830;--line:#2e333d;--text:#e8eaee;--mute:#8f96a3;--acc:#7fb4ff;--accfg:#0b1b33;--bad:#ff7b7b;--ok:#6fd49a;--r:12px}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+h1{font-size:1.6rem;margin:0 0 .25rem;letter-spacing:-.01em}
+h2{font-size:1.1rem;margin:0 0 .75rem}
+p{margin:.25rem 0 1rem}
+.mute{color:var(--mute);font-size:.9rem}
+main{max-width:1100px;margin:0 auto;padding:1rem 1rem 6rem}
+.hidden{display:none!important}
+input,textarea,button{font:inherit;color:inherit}
+input[type=text],input[type=password],input[type=search],textarea{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:.75rem .9rem;outline:none}
+input:focus,textarea:focus,button:focus-visible{border-color:var(--acc);box-shadow:0 0 0 2px #7fb4ff44}
+label.f{display:block;margin:0 0 .9rem;font-size:.9rem;color:var(--mute)}
+select{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:.75rem .9rem;outline:none;color:var(--text);font:inherit}
+select:focus{border-color:var(--acc);box-shadow:0 0 0 2px #7fb4ff44}
+label.f>select{margin-top:.3rem}
+label.f>input,label.f>textarea{margin-top:.3rem;color:var(--text)}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);padding:.65rem 1rem;cursor:pointer}
+.btn:hover{border-color:var(--mute)}
+.btn.p{background:var(--acc);color:var(--accfg);border-color:var(--acc);font-weight:600}
+.btn.d{color:var(--bad)}
+.btn.big{width:100%;padding:1rem;font-size:1.05rem}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:.5rem;flex-wrap:wrap}
+.row>*{flex:1}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:1rem}
+.warn{background:#2a2216;border:1px solid #5a4a22;color:#e6cf9a;border-radius:var(--r);padding:.75rem .9rem;font-size:.88rem;margin:0 0 1rem}
+.err{color:var(--bad);min-height:1.3em;font-size:.92rem;margin:.5rem 0}
+.chk{display:flex;gap:.5rem;align-items:center;margin:0 0 1rem}
+#setup{max-width:480px;margin:0 auto;padding-top:2rem}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#101216;border-top:1px solid var(--line);z-index:5;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:0;padding:.9rem 0;color:var(--mute);cursor:pointer}
+nav button.on{color:var(--acc);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.7rem;margin-top:1rem}
+@media(min-width:700px){.grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:960px){.grid{grid-template-columns:repeat(4,1fr)}}
+.img-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
+.thumb{aspect-ratio:4/3;background:var(--panel2);display:flex;align-items:center;justify-content:center;color:var(--mute);font-size:.8rem;cursor:zoom-in}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.meta{padding:.6rem .7rem .3rem;flex:1;min-width:0}
+.meta b{display:block;color:var(--acc)}
+.meta .tp{font-weight:600;overflow-wrap:anywhere}
+.meta .ds{color:var(--mute);font-size:.88rem;overflow-wrap:anywhere}
+.acts{display:flex;flex-wrap:wrap;gap:.3rem;padding:.5rem .7rem .7rem}
+.acts button{flex:1 1 auto;padding:.4rem .5rem;font-size:.8rem;border-radius:8px;background:var(--panel2);border:1px solid var(--line);cursor:pointer}
+.drop{border:2px dashed var(--line);border-radius:var(--r);padding:2rem 1rem;text-align:center;color:var(--mute);margin:1rem 0}
+.drop.over{border-color:var(--acc);color:var(--acc)}
+#pv{width:100%;max-height:50vh;object-fit:contain;border-radius:var(--r);background:var(--panel2);margin-bottom:.8rem}
+.idtag{font-weight:700;color:var(--acc);font-size:1.2rem;margin-bottom:.6rem}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:var(--r);width:min(92vw,440px);padding:1.1rem}
+dialog::backdrop{background:#000a}
+#lb{width:min(96vw,900px);padding:.5rem}
+#lb img{width:100%;max-height:85vh;object-fit:contain;display:block}
+#toast{position:fixed;left:50%;bottom:4.5rem;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:.6rem 1rem;border-radius:99px;z-index:9;font-size:.9rem;max-width:90vw}
+.st{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:var(--mute);margin-right:.4rem}
+.st.ok{background:var(--ok)}.st.bad{background:var(--bad)}
+.chips{display:flex;gap:.4rem;overflow-x:auto;padding:.7rem 0 .2rem;-webkit-overflow-scrolling:touch}
+.chip{flex:none;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:.35rem .85rem;font-size:.88rem;cursor:pointer;color:var(--text)}
+.chip.on{background:var(--acc);color:var(--accfg);border-color:var(--acc);font-weight:600}
+.hint{font-size:.82rem;color:var(--mute);margin:-.5rem 0 .9rem;overflow-wrap:anywhere}
+.thumb.pdf{flex-direction:column;gap:.3rem;font-size:1.05rem;color:var(--text)}
+.pdfprev{background:var(--panel2);border-radius:var(--r);padding:1.4rem 1rem;text-align:center;margin-bottom:.8rem;overflow-wrap:anywhere}
+#pdfv{position:fixed;inset:0;z-index:20;background:#0c0d10;display:flex;flex-direction:column}
+.pdfbar{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;padding:.5rem .6rem;padding-top:calc(.5rem + env(safe-area-inset-top));background:#101216;border-bottom:1px solid var(--line)}
+.pdfbar button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:.45rem .7rem;cursor:pointer;min-width:2.4rem}
+.pdfbar button:disabled{opacity:.4}
+#pdfTitle{flex:1 1 8rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+#pdfPg{font-size:.9rem;color:var(--mute);min-width:3.6rem;text-align:center}
+#pdfBody{flex:1;overflow:auto;padding:.6rem;-webkit-overflow-scrolling:touch}
+#pdfCv{display:block;margin:0 auto;background:#fff;max-width:none}
+#pdfMsg{text-align:center;color:var(--mute);padding:2rem 1rem}
+dl{display:grid;grid-template-columns:auto 1fr;gap:.4rem 1rem;margin:0 0 1rem}dt{color:var(--mute)}dd{margin:0;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+
+<!-- ============ SETUP SCREEN ============ -->
+<main id="setup" class="hidden">
+  <h1>Note Image Library</h1>
+  <p class="mute">Store and reference images for handwritten notes.</p>
+  <div class="warn">Storing a GitHub token in browser storage has security risks. Your token is stored locally in this browser and is not embedded in the website source. Anyone with access to this browser profile may potentially access it. Use a fine-grained token limited to ONLY your private image repository with <b>Contents: Read and write</b> and nothing else.</div>
+  <form id="setupForm" autocomplete="off">
+    <label class="f">GitHub Username<input type="text" id="sUser" autocapitalize="none" autocorrect="off" required></label>
+    <label class="f">Private Repository<input type="text" id="sRepo" autocapitalize="none" autocorrect="off" required></label>
+    <label class="f">Branch<input type="text" id="sBranch" value="main" autocapitalize="none" autocorrect="off" required></label>
+    <label class="f">Personal Access Token<input type="password" id="sToken" autocomplete="new-password" required></label>
+    <label class="chk"><input type="checkbox" id="sRemember"> Remember credentials</label>
+    <button class="btn p big" id="sGo" type="submit">Connect</button>
+    <div class="err" id="sErr" role="alert"></div>
+  </form>
+</main>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hidden">
+  <main>
+    <!-- Gallery -->
+    <section id="v-gallery">
+      <h1>Note Images</h1>
+      <input type="search" id="q" placeholder="🔍 Search..." aria-label="Search images">
+      <div class="chips" id="kinds" aria-label="Filter by type"><button class="chip on" data-k="">All types</button><button class="chip" data-k="image">Images</button><button class="chip" data-k="pdf">PDFs</button></div>
+      <div class="chips" id="topics" role="tablist" aria-label="Filter by topic"></div>
+      <div style="margin-top:.8rem"><button class="btn p big" id="goUpload">＋ Upload Image or PDF</button></div>
+      <div class="err" id="gErr" role="alert"></div>
+      <div class="grid" id="grid"></div>
+      <p class="mute" id="empty" style="text-align:center;margin-top:2rem"></p>
+    </section>
+
+    <!-- Upload -->
+    <section id="v-upload" class="hidden">
+      <h1>Upload</h1>
+      <div id="pick">
+        <div class="drop" id="drop">Drag and drop a file here<br>JPG, PNG, WEBP or PDF</div>
+        <div class="row">
+          <button class="btn p big" id="pickBtn">Choose file</button>
+          <button class="btn big" id="camBtn">Take photo</button>
+        </div>
+        <input type="file" id="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" class="hidden">
+        <input type="file" id="cam" accept="image/*" capture="environment" class="hidden">
+      </div>
+      <div id="form" class="hidden">
+        <img id="pv" alt="Preview"><div id="pvPdf" class="pdfprev hidden"></div>
+        <div class="idtag" id="newId"></div>
+        <label class="f">Topic<select id="uTopicSel" aria-label="Topic"></select>
+          <input type="text" id="uTopic" class="hidden" placeholder="New topic name" autocomplete="off" style="margin-top:.5rem"></label>
+        <div class="hint" id="uHint"></div>
+        <label class="f">Description<textarea id="uDesc" rows="3" placeholder="e.g. IAM policy evaluation"></textarea></label>
+        <div class="row">
+          <button class="btn p big" id="upGo">Upload</button>
+          <button class="btn big" id="upCancel">Cancel</button>
+        </div>
+      </div>
+      <div class="err" id="uErr" role="alert"></div>
+    </section>
+
+    <!-- Settings -->
+    <section id="v-settings" class="hidden">
+      <h1>Settings</h1>
+      <div class="card">
+        <dl>
+          <dt>Repository</dt><dd id="stRepo"></dd>
+          <dt>Branch</dt><dd id="stBranch"></dd>
+          <dt>Token</dt><dd>••••••••••••</dd>
+          <dt>Status</dt><dd><span class="st" id="stDot"></span><span id="stText">Unknown</span></dd>
+          <dt>Storage</dt><dd id="stStore"></dd>
+        </dl>
+        <div class="row">
+          <button class="btn" id="test">Test Connection</button>
+          <button class="btn d" id="clear">Clear Credentials</button>
+        </div>
+      </div>
+    </section>
+  </main>
+  <nav>
+    <button data-v="gallery" class="on">Gallery</button>
+    <button data-v="upload">Upload</button>
+    <button data-v="settings">Settings</button>
+  </nav>
+</div>
+
+<!-- Edit dialog -->
+<dialog id="dlgEdit">
+  <h2 id="eTitle"></h2>
+  <label class="f">Topic<select id="eTopicSel" aria-label="Topic"></select>
+    <input type="text" id="eTopic" class="hidden" placeholder="New topic name" autocomplete="off" style="margin-top:.5rem"></label>
+  <div class="hint">Changing the topic moves the file to that topic's folder. The ID stays the same.</div>
+  <label class="f">Description<textarea id="eDesc" rows="3"></textarea></label>
+  <div class="err" id="eErr"></div>
+  <div class="row">
+    <button class="btn p" id="eSave">Save</button>
+    <button class="btn" id="eCancel">Cancel</button>
+    <button class="btn d" id="eDel">Delete</button>
+  </div>
+</dialog>
+<div id="pdfv" class="hidden" role="dialog" aria-label="PDF viewer">
+  <div class="pdfbar">
+    <button id="pdfClose" aria-label="Close">✕</button><span id="pdfTitle"></span>
+    <button id="pdfPrev" aria-label="Previous page">‹</button><span id="pdfPg"></span><button id="pdfNext" aria-label="Next page">›</button>
+    <button id="pdfZo" aria-label="Zoom out">−</button><button id="pdfZi" aria-label="Zoom in">＋</button>
+    <button id="pdfOpen" aria-label="Open in new tab">↗</button><button id="pdfDl" aria-label="Download">⬇</button>
+  </div>
+  <div id="pdfBody"><div id="pdfMsg">Loading…</div><canvas id="pdfCv" class="hidden"></canvas></div>
+</div>
+<dialog id="lb"><img id="lbImg" alt=""></dialog>
+<div id="toast" class="hidden" role="status"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   Note Image Library — single-file, frontend-only.
+   Storage: private GitHub repo via the GitHub REST "Contents" API.
+   Files:   image/<Topic>/IMG-001.jpg, pdf/<Topic>/PDF-001.pdf, and index.json at the repo root (metadata)
+   ===================================================================== */
+
+const LS_KEY = "nil.credentials.v1";
+const INDEX_PATH = "index.json";                 // metadata at repo root
+const LEGACY_INDEX_PATH = "images/index.json";   // read-only fallback for libraries created before topic folders
+const MAX_BYTES = 20 * 1024 * 1024;
+const EXT_OK = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", pdf: "application/pdf" };
+const FOLDER = { image: "image", pdf: "pdf" };      // top-level repo folders by file type
+const PREFIX = { image: "IMG", pdf: "PDF" };        // IDs: IMG-001 for images, PDF-001 for PDFs (separate counters)
+
+const S = { topic: "", kind: "", cfg: null, data: { images: [], lastId: 0 }, sha: null, q: "", blobs: new Map(), file: null, busy: false };
+const $ = (id) => document.getElementById(id);
+
+/* ---------- small helpers ---------- */
+// Escape user metadata for any innerHTML use.
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const idNum = (id) => { const m = /^(?:IMG|PDF)-(\d+)$/.exec(id || ""); return m ? parseInt(m[1], 10) : 0; };
+const kindOf = (i) => (i && (i.type === "pdf" || /^PDF-/.test(i.id || "")) ? "pdf" : "image");   // older entries have no type => image
+const fmtId = (n, kind = "image") => PREFIX[kind] + "-" + String(n).padStart(3, "0");
+const extOf = (name) => (name.split(".").pop() || "").toLowerCase();
+const encPath = (p) => p.split("/").map(encodeURIComponent).join("/");
+let toastT;
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.remove("hidden"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.add("hidden"), 2200); }
+
+// UTF-8 safe base64 for JSON text
+const textToB64 = (s) => { const b = new TextEncoder().encode(s); let bin = ""; b.forEach((x) => (bin += String.fromCharCode(x))); return btoa(bin); };
+const b64ToText = (b) => { const bin = atob(b.replace(/\s/g, "")); return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))); };
+const fileToB64 = (file) => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(String(r.result).split(",")[1]);
+  r.onerror = () => rej(new Error("Could not read the selected file."));
+  r.readAsDataURL(file);
+});
+
+/* ---------- topics ---------- */
+// Make a topic safe to use as a GitHub folder name: letters, numbers, spaces, "-" and "_" only.
+// "/", "\\", ".", ".." and any other path-like characters are stripped, so no unintended paths are possible.
+function cleanTopic(s) {
+  return String(s ?? "").normalize("NFC").replace(/[^\p{L}\p{N} _-]+/gu, " ").replace(/\s+/g, " ").trim().slice(0, 50).trim();
+}
+// Case-consistent topic: reuse the existing spelling if "aws" matches "AWS" (case-insensitive).
+function canonTopic(raw, images) {
+  const c = cleanTopic(raw);
+  if (!c) throw new Error("Enter a topic (letters, numbers, spaces, - and _ only).");
+  const hit = images.find((i) => cleanTopic(i.topic).toLowerCase() === c.toLowerCase());
+  return hit ? cleanTopic(hit.topic) : c;
+}
+// Unique topics (case-insensitive), sorted, using the first-seen spelling.
+function topicList(images) {
+  const m = new Map();
+  images.forEach((i) => { const t = String(i.topic || "").trim(); if (t && !m.has(t.toLowerCase())) m.set(t.toLowerCase(), t); });
+  return [...m.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+// Topic dropdown: existing topics + "Create new topic…" (which reveals a text box).
+const NEW_TOPIC = "__new__";
+function fillTopicSelect(sel, input, current) {
+  const topics = topicList(S.data.images);
+  sel.innerHTML = '<option value="">Select a topic…</option>' + topics.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("") + `<option value="${NEW_TOPIC}">＋ Create new topic…</option>`;
+  input.value = "";
+  const hit = current ? topics.find((t) => t.toLowerCase() === current.toLowerCase()) : "";
+  if (hit) sel.value = hit;
+  else if (current) { sel.value = NEW_TOPIC; input.value = current; }
+  else sel.value = topics.length ? "" : NEW_TOPIC;      // no topics yet: go straight to creating one
+  toggleTopicInput(sel, input);
+}
+function toggleTopicInput(sel, input) { input.classList.toggle("hidden", sel.value !== NEW_TOPIC); }
+const topicValue = (sel, input) => (sel.value === NEW_TOPIC ? input.value : sel.value);
+
+/* ---------- credentials ---------- */
+function loadCreds() { try { const c = JSON.parse(localStorage.getItem(LS_KEY) || "null"); return c && c.user && c.repo && c.branch && c.token ? c : null; } catch { return null; } }
+function saveCreds(c) { localStorage.setItem(LS_KEY, JSON.stringify(c)); }
+function clearCreds() { localStorage.removeItem(LS_KEY); }
+
+/* =====================================================================
+   GITHUB API LAYER
+   All requests: https://api.github.com/repos/{owner}/{repo}/...
+   Auth: "Authorization: Bearer <fine-grained PAT>" (never put in URLs/logs)
+   ===================================================================== */
+function friendly(status, ctx) {
+  if (status === 401) return "GitHub rejected the token (401). It may be wrong, expired or revoked.";
+  if (status === 403) return "Permission denied (403). The token needs Contents: Read and write on this repository, or you hit a rate limit.";
+  if (status === 404) return ctx === "repo" ? "Repository or branch not found (404). Check the username, repository name and branch, and that the token can access it." : "Not found (404).";
+  if (status === 409) return "Conflict (409): the repository changed while saving.";
+  if (status === 422) return "GitHub could not process this request (422). The file may already exist.";
+  return "GitHub returned an error (" + status + ").";
+}
+
+async function gh(path, { method = "GET", body, raw = false, ctx } = {}) {
+  const c = S.cfg;
+  let url = "https://api.github.com/repos/" + encodeURIComponent(c.user) + "/" + encodeURIComponent(c.repo) + path;
+  if (method === "GET" && path.includes("/contents/")) url += "?ref=" + encodeURIComponent(c.branch);
+  const headers = {
+    "Authorization": "Bearer " + c.token,
+    "Accept": raw ? "application/vnd.github.raw+json" : "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+  if (body) headers["Content-Type"] = "application/json";
+  let res;
+  try {
+    res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined, cache: "no-store" });
+  } catch {
+    const e = new Error("Network error. Check your connection and try again."); e.status = 0; throw e;
+  }
+  if (!res.ok) { const e = new Error(friendly(res.status, ctx)); e.status = res.status; throw e; }
+  if (raw) return res.blob();
+  return res.status === 204 ? null : res.json();
+}
+
+// Connection test: repo is reachable, token can push, and branch exists.
+async function testConnection() {
+  const repo = await gh("", { ctx: "repo" });
+  if (repo.permissions && repo.permissions.push === false) { const e = new Error("Connected, but this token has read-only access. Grant Contents: Read and write."); e.status = 403; throw e; }
+  await gh("/branches/" + encodeURIComponent(S.cfg.branch), { ctx: "repo" });
+  return repo;
+}
+
+// GET index.json (repo root). Returns {data, sha}. If it doesn't exist yet, falls back to the legacy
+// images/index.json (read-only, sha=null so the new root index.json is created on the next write).
+// Entries without a "path" (older libraries) get path "images/<filename>" so they keep working.
+async function getIndex() {
+  let f = null, legacy = false;
+  try { f = await gh("/contents/" + INDEX_PATH); }
+  catch (e) {
+    if (e.status !== 404) throw e;
+    try { f = await gh("/contents/" + LEGACY_INDEX_PATH); legacy = true; }
+    catch (e2) { if (e2.status === 404) return { data: { images: [], lastId: 0 }, sha: null }; throw e2; }
+  }
+  let data;
+  try { data = JSON.parse(b64ToText(f.content)); } catch { throw new Error("index.json is not valid JSON."); }
+  if (!data || !Array.isArray(data.images)) data = { images: [] };
+  data.images.forEach((i) => { if (!i.path) i.path = "images/" + i.filename; });
+  data.lastId = Math.max(parseInt(data.lastId, 10) || 0, ...data.images.filter((i) => kindOf(i) === "image").map((i) => idNum(i.id)));
+  data.lastPdfId = Math.max(parseInt(data.lastPdfId, 10) || 0, ...data.images.filter((i) => kindOf(i) === "pdf").map((i) => idNum(i.id)));
+  return { data, sha: legacy ? null : f.sha };
+}
+
+// PUT creates/updates a file. Updating an existing file REQUIRES its current blob sha;
+// a stale sha makes GitHub answer 409 (conflict). Creating omits sha.
+async function putFile(path, contentB64, message, sha) {
+  const body = { message, content: contentB64, branch: S.cfg.branch };
+  if (sha) body.sha = sha;
+  return gh("/contents/" + encPath(path), { method: "PUT", body });
+}
+const putIndex = (data, sha, msg) => putFile(INDEX_PATH, textToB64(JSON.stringify(data, null, 2) + "\n"), msg, sha);
+
+// DELETE a file: needs the file's current sha (fetched via GET metadata).
+async function deleteFile(path, message) {
+  let meta;
+  try { meta = await gh("/contents/" + encPath(path)); } catch (e) { if (e.status === 404) return; throw e; }
+  await gh("/contents/" + encPath(path), { method: "DELETE", body: { message, sha: meta.sha, branch: S.cfg.branch } });
+}
+
+// Fetch a private image through the API (raw media type), return a blob: URL. Cached per session.
+async function imageUrl(path) {
+  if (S.blobs.has(path)) return S.blobs.get(path);
+  const blob = await gh("/contents/" + encPath(path), { raw: true });
+  const url = URL.createObjectURL(new Blob([blob], { type: EXT_OK[extOf(path)] || "image/jpeg" }));
+  S.blobs.set(path, url);
+  return url;
+}
+
+// Read-modify-write index.json; on 409 refetch the latest copy and re-apply (never blind-overwrite).
+async function updateIndex(mutate, message) {
+  for (let i = 0; i < 4; i++) {
+    const { data, sha } = await getIndex();
+    mutate(data);
+    try { await putIndex(data, sha, message); S.data = data; return; }
+    catch (e) { if (e.status !== 409 && !(e.status === 422 && sha === null)) throw e; }
+  }
+  throw new Error("Could not save after several attempts because the repository kept changing. Try again.");
+}
+
+/* =====================================================================
+   IMAGE OPERATIONS
+   ===================================================================== */
+// Next ID = highest of (existing IDs of that type, retired-ID counter) + 1. Images (IMG-) and PDFs (PDF-)
+// have separate global sequences; the counter in index.json keeps deleted IDs retired.
+const counterKey = (kind) => (kind === "pdf" ? "lastPdfId" : "lastId");
+const nextIdNum = (data, kind = "image", floor = 0) => Math.max(floor, data[counterKey(kind)] || 0, ...data.images.filter((i) => kindOf(i) === kind).map((i) => idNum(i.id))) + 1;
+
+async function uploadImage(file, topicRaw, description, onStatus) {
+  const ext = extOf(file.name) || ({ "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "application/pdf": "pdf" }[file.type]);
+  const kind = ext === "pdf" ? "pdf" : "image";
+  const b64 = await fileToB64(file);
+  let floor = 0;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    onStatus("Checking latest library…");
+    const { data, sha } = await getIndex();            // always use the latest index.json
+    const topic = canonTopic(topicRaw, data.images);   // sanitized + case-consistent with existing topics
+    const n = nextIdNum(data, kind, floor), id = fmtId(n, kind), filename = id + "." + ext;
+    const path = FOLDER[kind] + "/" + topic + "/" + filename;   // e.g. image/AWS/IMG-001.jpg or pdf/AWS/PDF-001.pdf (IDs are global, not per topic)
+    onStatus("Uploading " + id + "…");
+    let imgSha;
+    try {
+      const r = await putFile(path, b64, "Add " + id + " to " + topic);   // step 1: image only
+      imgSha = r.content.sha;
+    } catch (e) {
+      if (e.status === 422) { floor = n; continue; }   // file already exists (orphan): skip this ID
+      if (e.status === 409) continue;                  // branch moved: retry
+      throw e;                                         // index.json untouched on failure
+    }
+    onStatus("Saving metadata…");
+    data.images.push({ id, filename, path, type: kind, topic, description });
+    data[counterKey(kind)] = n;
+    try {
+      await putIndex(data, sha, "Add " + id + " metadata");           // step 2: index.json
+      S.data = data;
+      return id;
+    } catch (e) {
+      // Index save failed: remove the orphan image so nothing half-written remains.
+      try { await gh("/contents/" + encPath(path), { method: "DELETE", body: { message: "Roll back " + id, sha: imgSha, branch: S.cfg.branch } }); } catch {}
+      if (e.status === 409) continue;                  // index changed: recalculate ID
+      throw e;
+    }
+  }
+  throw new Error("Upload failed because the repository kept changing. Try again.");
+}
+
+// Edit metadata. If the topic changes, MOVE the file (the Contents API has no rename):
+// copy to the new folder, update index.json, then delete the old file. ID and filename never change.
+async function saveEdit(item, topicRaw, description, onStatus) {
+  const { data } = await getIndex();
+  const cur = data.images.find((i) => i.id === item.id);
+  if (!cur) throw new Error(item.id + " no longer exists.");
+  const wanted = cleanTopic(topicRaw);
+  if (!wanted) throw new Error("Enter a topic (letters, numbers, spaces, - and _ only).");
+  const same = wanted.toLowerCase() === cleanTopic(cur.topic).toLowerCase();
+  const topic = same ? cur.topic : canonTopic(topicRaw, data.images);
+  const newPath = same ? cur.path : FOLDER[kindOf(cur)] + "/" + topic + "/" + cur.filename;
+  const oldPath = cur.path;
+  let warn = "";
+  if (newPath === oldPath) {
+    await updateIndex((d) => { const it = d.images.find((i) => i.id === item.id); if (!it) throw new Error(item.id + " no longer exists."); it.topic = topic; it.description = description; }, "Edit " + item.id);
+    return warn;
+  }
+  onStatus("Moving file…");
+  const blob = await gh("/contents/" + encPath(oldPath), { raw: true });
+  const b64 = await fileToB64(blob);
+  let newSha;
+  try { newSha = (await putFile(newPath, b64, "Move " + item.id + " to " + topic)).content.sha; }
+  catch (e) { throw e.status === 422 ? new Error("A file already exists at " + newPath + ".") : e; }
+  try {
+    await updateIndex((d) => { const it = d.images.find((i) => i.id === item.id); if (!it) throw new Error(item.id + " no longer exists."); it.topic = topic; it.path = newPath; it.description = description; }, "Move " + item.id + " metadata");
+  } catch (e) {
+    try { await gh("/contents/" + encPath(newPath), { method: "DELETE", body: { message: "Roll back move of " + item.id, sha: newSha, branch: S.cfg.branch } }); } catch {}
+    throw e;
+  }
+  try { await deleteFile(oldPath, "Remove old copy of " + item.id); } catch { warn = "Moved, but the old file " + oldPath + " could not be removed."; }
+  const u = S.blobs.get(oldPath); if (u) { URL.revokeObjectURL(u); S.blobs.delete(oldPath); }
+  return warn;
+}
+
+async function deleteImage(item) {
+  await deleteFile(item.path, "Delete " + item.id);                      // 1. remove file from its topic folder
+  await updateIndex((d) => { const k = counterKey(kindOf(item)); d[k] = Math.max(d[k] || 0, idNum(item.id)); d.images = d.images.filter((i) => i.id !== item.id); }, "Remove " + item.id + " metadata"); // 2. remove metadata, ID stays retired
+  const u = S.blobs.get(item.path); if (u) { URL.revokeObjectURL(u); S.blobs.delete(item.path); }
+}
+
+/* =====================================================================
+   UI
+   ===================================================================== */
+function show(view) {
+  ["gallery", "upload", "settings"].forEach((v) => $("v-" + v).classList.toggle("hidden", v !== view));
+  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.v === view));
+  if (view === "upload") resetUpload();
+  if (view === "settings") renderSettings();
+  window.scrollTo(0, 0);
+}
+
+function showSetup(msg) {
+  $("app").classList.add("hidden"); $("setup").classList.remove("hidden");
+  $("sErr").textContent = msg || "";
+  const c = S.cfg || loadCreds();
+  if (c) { $("sUser").value = c.user; $("sRepo").value = c.repo; $("sBranch").value = c.branch; }
+  $("sToken").value = "";
+}
+
+function showApp() { $("setup").classList.add("hidden"); $("app").classList.remove("hidden"); show("gallery"); }
+
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(async (en) => {
+    if (!en.isIntersecting) return;
+    io.unobserve(en.target);
+    const box = en.target, fn = box.dataset.path;
+    try {
+      const url = await imageUrl(fn);
+      const img = document.createElement("img"); img.alt = box.dataset.id; img.src = url;
+      box.textContent = ""; box.appendChild(img);
+    } catch { box.textContent = "Could not load image"; }
+  });
+}, { rootMargin: "300px" });
+
+function renderGallery() {
+  const q = S.q.trim().toLowerCase();
+  const topics = topicList(S.data.images);
+  if (S.topic && !topics.some((t) => t.toLowerCase() === S.topic.toLowerCase())) S.topic = "";   // selected topic vanished
+  $("topics").innerHTML = ["", ...topics].map((t) => `<button class="chip${t.toLowerCase() === S.topic.toLowerCase() ? " on" : ""}" data-t="${esc(t)}">${t ? esc(t) : "All"}</button>`).join("");
+  const list = S.data.images.filter((i) => (!S.kind || kindOf(i) === S.kind) && (!S.topic || String(i.topic || "").trim().toLowerCase() === S.topic.toLowerCase()) && (!q || [i.id, i.topic, i.description].some((v) => String(v || "").toLowerCase().includes(q))));
+  list.reverse();   // newest first (index order)
+  $("grid").innerHTML = list.map((i) => `
+    <article class="img-card" data-id="${esc(i.id)}">
+      <div class="thumb${kindOf(i) === "pdf" ? " pdf" : ""}" data-kind="${kindOf(i)}" data-path="${esc(i.path)}" data-id="${esc(i.id)}">${kindOf(i) === "pdf" ? "<span style=\"font-size:2rem\">📄</span>PDF" : "Loading…"}</div>
+      <div class="meta"><b>${esc(i.id)}</b><div class="tp">${esc(i.topic)}</div><div class="ds">${esc(i.description)}</div></div>
+      <div class="acts"><button data-a="id">Copy ID</button><button data-a="md">Copy Markdown</button>${kindOf(i) === "pdf" ? `<button data-a="view">View</button>` : ""}<button data-a="edit">Edit</button></div>
+    </article>`).join("");
+  $("grid").querySelectorAll(".thumb[data-kind=image]").forEach((t) => io.observe(t));   // only images are lazy-loaded as thumbnails
+  $("empty").textContent = list.length ? "" : (S.data.images.length ? "No images match your search or topic filter." : "No images yet. Tap “Upload Image” to add your first one.");
+}
+
+async function loadGallery() {
+  $("gErr").textContent = "";
+  const { data, sha } = await getIndex();
+  S.data = data; S.sha = sha;
+  renderGallery();
+}
+
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch { const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); } catch {} t.remove(); }
+  toast("Copied " + text);
+}
+
+/* ----- gallery events ----- */
+$("grid").addEventListener("click", (e) => {
+  const card = e.target.closest(".img-card"); if (!card) return;
+  const item = S.data.images.find((i) => i.id === card.dataset.id); if (!item) return;
+  const a = e.target.closest("button")?.dataset.a;
+  if (a === "id" || a === "md") copy(item.id);        // both copy the plain ID, e.g. IMG-001
+  else if (a === "edit") openEdit(item);
+  else if (a === "view" || (kindOf(item) === "pdf" && e.target.closest(".thumb"))) openPdf(item);
+  else if (kindOf(item) === "image" && e.target.closest(".thumb img")) { $("lbImg").src = e.target.src; $("lb").showModal(); }
+});
+$("lb").addEventListener("click", () => $("lb").close());
+$("kinds").addEventListener("click", (e) => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  S.kind = b.dataset.k; document.querySelectorAll("#kinds .chip").forEach((c) => c.classList.toggle("on", c === b)); renderGallery();
+});
+$("topics").addEventListener("click", (e) => { const b = e.target.closest(".chip"); if (!b) return; S.topic = b.dataset.t; renderGallery(); });
+$("q").addEventListener("input", (e) => { S.q = e.target.value; renderGallery(); });
+$("goUpload").onclick = () => show("upload");
+document.querySelectorAll("nav button").forEach((b) => (b.onclick = () => show(b.dataset.v)));
+
+/* ----- edit / delete ----- */
+let editing = null;
+function openEdit(item) {
+  editing = item; $("eTitle").textContent = "Edit " + item.id; $("eErr").textContent = "";
+  fillTopicSelect($("eTopicSel"), $("eTopic"), item.topic || ""); $("eDesc").value = item.description || "";
+  $("dlgEdit").showModal();
+}
+$("eTopicSel").addEventListener("change", () => { toggleTopicInput($("eTopicSel"), $("eTopic")); if (!$("eTopic").classList.contains("hidden")) $("eTopic").focus(); });
+$("eCancel").onclick = () => $("dlgEdit").close();
+$("eSave").onclick = async () => {
+  $("eSave").disabled = true; $("eErr").textContent = "";
+  try { const warn = await saveEdit(editing, topicValue($("eTopicSel"), $("eTopic")), $("eDesc").value.trim(), (m) => ($("eSave").textContent = m)); $("dlgEdit").close(); renderGallery(); toast(warn || "Saved"); }
+  catch (e) { $("eErr").textContent = e.message; }
+  $("eSave").disabled = false; $("eSave").textContent = "Save";
+};
+$("eDel").onclick = async () => {
+  if (!confirm("Delete " + editing.id + " permanently? The image will be removed from GitHub and the ID will never be reused.")) return;
+  $("eDel").disabled = true; $("eErr").textContent = "";
+  try { await deleteImage(editing); $("dlgEdit").close(); renderGallery(); toast("Deleted " + editing.id); }
+  catch (e) { $("eErr").textContent = e.message; }
+  $("eDel").disabled = false;
+};
+
+/* ----- upload ----- */
+function resetUpload() {
+  S.file = null; $("form").classList.add("hidden"); $("pick").classList.remove("hidden"); $("uErr").textContent = "";
+  fillTopicSelect($("uTopicSel"), $("uTopic"), ""); $("uDesc").value = ""; $("uHint").textContent = ""; $("file").value = ""; $("cam").value = "";
+  if ($("pv").src.startsWith("blob:")) URL.revokeObjectURL($("pv").src);
+  $("pv").removeAttribute("src"); $("pv").classList.remove("hidden"); $("pvPdf").classList.add("hidden");
+}
+
+async function chooseFile(file) {
+  $("uErr").textContent = "";
+  if (!file) return;
+  const ext = extOf(file.name), kind = ext === "pdf" ? "pdf" : "image";
+  if (!EXT_OK[ext] || (file.type && !Object.values(EXT_OK).includes(file.type))) return void ($("uErr").textContent = "Unsupported file. Use JPG, JPEG, PNG, WEBP or PDF.");
+  if (file.size > MAX_BYTES) return void ($("uErr").textContent = "File is too large (max 20 MB).");
+  if (kind === "pdf") {
+    const head = new TextDecoder().decode(await file.slice(0, 5).arrayBuffer());
+    if (head !== "%PDF-") return void ($("uErr").textContent = "That file is not a valid PDF.");
+    $("pv").classList.add("hidden"); $("pvPdf").classList.remove("hidden");
+    $("pvPdf").textContent = "📄 " + file.name + " (" + (file.size / 1048576).toFixed(1) + " MB)";
+  } else {
+    const url = URL.createObjectURL(file);
+    const ok = await new Promise((r) => { const im = new Image(); im.onload = () => r(true); im.onerror = () => r(false); im.src = url; });
+    if (!ok) { URL.revokeObjectURL(url); return void ($("uErr").textContent = "That file is not a valid image."); }
+    $("pvPdf").classList.add("hidden"); $("pv").classList.remove("hidden"); $("pv").src = url;
+  }
+  S.file = file;
+  $("pick").classList.add("hidden"); $("form").classList.remove("hidden");
+  $("newId").textContent = "Next ID: …";
+  try { const { data } = await getIndex(); $("newId").textContent = fmtId(nextIdNum(data, kind), kind); }   // preview only; recomputed at upload
+  catch { $("newId").textContent = "ID assigned on upload"; }
+}
+
+$("pickBtn").onclick = () => $("file").click();
+$("camBtn").onclick = () => $("cam").click();
+$("file").onchange = (e) => chooseFile(e.target.files[0]);
+$("cam").onchange = (e) => chooseFile(e.target.files[0]);
+const drop = $("drop");
+["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => chooseFile(e.dataTransfer.files[0]));
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => e.preventDefault());
+$("upCancel").onclick = resetUpload;
+function updateTopicHint() {   // live preview of the sanitized folder name
+  const c = cleanTopic(topicValue($("uTopicSel"), $("uTopic")));
+  const ex = topicList(S.data.images).find((t) => cleanTopic(t).toLowerCase() === c.toLowerCase());
+  $("uHint").textContent = !c ? "" : ex ? "Will be saved in the existing folder: " + ex + "/" : "A new folder will be created: " + c + "/";
+}
+$("uTopicSel").addEventListener("change", () => { toggleTopicInput($("uTopicSel"), $("uTopic")); if (!$("uTopic").classList.contains("hidden")) $("uTopic").focus(); updateTopicHint(); });
+$("uTopic").addEventListener("input", updateTopicHint);
+$("upGo").onclick = async () => {
+  if (!S.file || S.busy) return;
+  if (!cleanTopic(topicValue($("uTopicSel"), $("uTopic")))) { $("uErr").textContent = "Select a topic, or choose “Create new topic” and enter a name (letters, numbers, spaces, - and _ only)."; return; }
+  S.busy = true; $("upGo").disabled = true; $("uErr").textContent = "";
+  try {
+    const id = await uploadImage(S.file, topicValue($("uTopicSel"), $("uTopic")), $("uDesc").value.trim(), (m) => ($("upGo").textContent = m));
+    toast("Uploaded " + id); resetUpload(); renderGallery(); show("gallery");
+  } catch (e) { $("uErr").textContent = e.message; }
+  S.busy = false; $("upGo").disabled = false; $("upGo").textContent = "Upload";
+};
+
+/* ----- PDF viewer -----
+   PDF.js (Mozilla) is loaded lazily from cdnjs the first time a PDF is opened, so mobile browsers that
+   cannot display PDFs inline still get a viewer. The file itself is fetched from the private repo via the API. */
+const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+let pdfLib = null;
+function loadPdfJs() {
+  if (!pdfLib) pdfLib = (async () => {
+    await new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = PDFJS + "pdf.min.js"; sc.onload = res; sc.onerror = () => rej(new Error("Could not load the PDF viewer library. Use ↗ or ⬇ instead.")); document.head.appendChild(sc); });
+    // Workers can't be created from a cross-origin URL, so wrap the worker script in a same-origin blob.
+    const code = await (await fetch(PDFJS + "pdf.worker.min.js")).text();
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+    return window.pdfjsLib;
+  })().catch((e) => { pdfLib = null; throw e; });
+  return pdfLib;
+}
+const V = { doc: null, page: 1, zoom: 1, token: 0, url: "", name: "" };
+function pdfMsg(t) { $("pdfMsg").textContent = t; $("pdfMsg").classList.toggle("hidden", !t); $("pdfCv").classList.toggle("hidden", !!t); }
+async function openPdf(item) {
+  Object.assign(V, { doc: null, page: 1, zoom: 1, url: "", name: item.filename });
+  $("pdfTitle").textContent = item.id + (item.topic ? " · " + item.topic : "");
+  $("pdfPg").textContent = ""; pdfMsg("Loading…"); $("pdfv").classList.remove("hidden"); document.body.style.overflow = "hidden";
+  try {
+    V.url = await imageUrl(item.path);                                  // authenticated API fetch -> blob URL
+    const [lib, buf] = await Promise.all([loadPdfJs(), fetch(V.url).then((r) => r.arrayBuffer())]);
+    V.doc = await lib.getDocument({ data: buf }).promise;
+    pdfMsg(""); await renderPdfPage();
+  } catch (e) { pdfMsg(e.message || "Could not open this PDF."); }
+}
+async function renderPdfPage() {
+  if (!V.doc) return;
+  const tk = ++V.token, page = await V.doc.getPage(V.page);
+  if (tk !== V.token) return;
+  const base = page.getViewport({ scale: 1 });
+  const fit = ($("pdfBody").clientWidth - 16) / base.width, vp = page.getViewport({ scale: Math.max(fit, 0.1) * V.zoom });
+  const cv = $("pdfCv"), dpr = window.devicePixelRatio || 1;
+  cv.width = Math.floor(vp.width * dpr); cv.height = Math.floor(vp.height * dpr);
+  cv.style.width = vp.width + "px"; cv.style.height = vp.height + "px";
+  await page.render({ canvasContext: cv.getContext("2d"), viewport: vp, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null }).promise.catch(() => {});
+  if (tk !== V.token) return;
+  $("pdfPg").textContent = V.page + " / " + V.doc.numPages;
+  $("pdfPrev").disabled = V.page <= 1; $("pdfNext").disabled = V.page >= V.doc.numPages;
+  $("pdfBody").scrollTop = 0;
+}
+function closePdf() { V.token++; V.doc = null; $("pdfv").classList.add("hidden"); document.body.style.overflow = ""; }
+$("pdfClose").onclick = closePdf;
+$("pdfPrev").onclick = () => { if (V.page > 1) { V.page--; renderPdfPage(); } };
+$("pdfNext").onclick = () => { if (V.doc && V.page < V.doc.numPages) { V.page++; renderPdfPage(); } };
+$("pdfZi").onclick = () => { V.zoom = Math.min(4, V.zoom + 0.25); renderPdfPage(); };
+$("pdfZo").onclick = () => { V.zoom = Math.max(0.5, V.zoom - 0.25); renderPdfPage(); };
+$("pdfOpen").onclick = () => { if (V.url) window.open(V.url, "_blank"); };
+$("pdfDl").onclick = () => { if (!V.url) return; const a = document.createElement("a"); a.href = V.url; a.download = V.name; document.body.appendChild(a); a.click(); a.remove(); };
+document.addEventListener("keydown", (e) => {
+  if ($("pdfv").classList.contains("hidden")) return;
+  if (e.key === "Escape") closePdf(); else if (e.key === "ArrowRight") $("pdfNext").click(); else if (e.key === "ArrowLeft") $("pdfPrev").click();
+});
+window.addEventListener("resize", () => { if (V.doc) renderPdfPage(); });
+
+/* ----- settings ----- */
+function setStatus(kind, text) { $("stDot").className = "st " + kind; $("stText").textContent = text; }
+function renderSettings() {
+  $("stRepo").textContent = S.cfg.user + "/" + S.cfg.repo;
+  $("stBranch").textContent = S.cfg.branch;
+  $("stStore").textContent = loadCreds() ? "Saved in this browser" : "This session only";
+}
+$("test").onclick = async () => {
+  setStatus("", "Testing…");
+  try { await testConnection(); setStatus("ok", "Connected"); } catch (e) { setStatus("bad", e.message); }
+};
+$("clear").onclick = () => {
+  if (!confirm("Remove saved GitHub credentials from this browser?")) return;
+  clearCreds(); S.cfg = null; S.blobs.forEach((u) => URL.revokeObjectURL(u)); S.blobs.clear(); S.data = { images: [], lastId: 0 }; S.topic = ""; S.kind = "";
+  $("grid").innerHTML = ""; $("topics").innerHTML = ""; showSetup("Credentials cleared.");
+};
+
+/* ----- connect / startup ----- */
+async function connect(cfg, remember, silent) {
+  S.cfg = cfg;
+  try {
+    await testConnection();
+    await loadGallery();
+  } catch (e) {
+    if (silent && (e.status === 401 || e.status === 404 || e.status === 403)) { S.cfg = { ...cfg, token: "" }; showSetup(e.message); S.cfg = null; return false; }
+    if (!silent) { S.cfg = null; $("sErr").textContent = e.message; return false; }
+    // Network/other failure with saved creds: still enter app, show the error.
+    showApp(); $("gErr").textContent = e.message; setStatus("bad", e.message); return false;
+  }
+  if (remember) saveCreds(cfg); else clearCreds();
+  showApp(); setStatus("ok", "Connected");
+  return true;
+}
+
+$("setupForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const cfg = { user: $("sUser").value.trim(), repo: $("sRepo").value.trim(), branch: $("sBranch").value.trim() || "main", token: $("sToken").value.trim() };
+  if (!cfg.user || !cfg.repo || !cfg.token) return;
+  $("sGo").disabled = true; $("sGo").textContent = "Connecting…"; $("sErr").textContent = "";
+  const ok = await connect(cfg, $("sRemember").checked, false);
+  $("sToken").value = "";                    // never keep the token visible in the DOM
+  $("sGo").disabled = false; $("sGo").textContent = "Connect";
+});
+
+(async function init() {
+  const saved = loadCreds();
+  if (!saved) return showSetup();
+  $("sRemember").checked = true;
+  await connect(saved, true, true);
+})();
+</script>
+</body>
+</html>
